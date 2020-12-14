@@ -23,7 +23,16 @@ impl DockerHub {
     }
 
     fn get_docker_limits(&self) -> (String, String, String) {
-        // let headers_registry = 
+
+        let token_url = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull";
+
+        let token = ureq::get(token_url).call().into_json();
+
+        println!("{:?}", token.unwrap()["token"]);
+
+        // let path = format!("{}", "https://registry-1.docker.io/v2/".to_owned() + "ratelimitpreview/test" + "/manifests/latest");
+        // // let headers_registry = 
+        // let registry = ureq::head(path.as_str()).set("Authorization", "Bearer ")
 
 
         return ("".to_string(), "".to_string(), "".to_string());
