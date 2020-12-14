@@ -26,9 +26,8 @@ impl DockerHub {
 
         let token_url = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull";
 
-        let token = ureq::get(token_url).call().into_json();
-
-        println!("{:?}", token.unwrap()["token"]);
+        let token_resp = ureq::get(token_url).call().into_json().unwrap();
+        let token = token_resp["token"];
 
         // let path = format!("{}", "https://registry-1.docker.io/v2/".to_owned() + "ratelimitpreview/test" + "/manifests/latest");
         // // let headers_registry = 
