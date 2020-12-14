@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::env;
 
 fn main() {
@@ -23,16 +25,19 @@ impl DockerHub {
     }
 
     fn get_docker_limits(&self) -> (String, String, String) {
-
         let token_url = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull";
 
         let token_resp = ureq::get(token_url).call().into_json().unwrap();
-        let token = token_resp["token"];
+        let token = &token_resp["token"].to_string();
 
-        // let path = format!("{}", "https://registry-1.docker.io/v2/".to_owned() + "ratelimitpreview/test" + "/manifests/latest");
-        // // let headers_registry = 
-        // let registry = ureq::head(path.as_str()).set("Authorization", "Bearer ")
+        let client = reqwest::blocking::Client::new();
 
+        let resp = client
+            .head("https://registry-1.docker.io/v2/ratelimitpreview/test/manifests/latest")
+            .bearer_auth(token)
+            .send();
+
+        println!("{:?}", resp);
 
         return ("".to_string(), "".to_string(), "".to_string());
     }
