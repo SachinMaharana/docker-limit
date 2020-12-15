@@ -1,23 +1,36 @@
+extern crate pretty_env_logger;
+#[macro_use] extern crate log;
+
 use anyhow::Result;
+// use log::{error, info};
 use reqwest::header::HeaderValue;
 use serde::Deserialize;
 use std::env;
 
-fn main() {
+
+fn main() -> Result<()> {
+    env::set_var("RUST_LOG", "info");
+    pretty_env_logger::init();
+
     let username = env::var("DOCKERHUB_USERNAME").unwrap_or_default();
     let password = env::var("DOCKERHUB_PASSWORD").unwrap_or_default();
 
     let docker_client = DockerHub::new(username, password);
 
-    let token = docker_client.get_token();
+    let token = match docker_client.get_token() {
+        Ok(t) => t,
+        Err(e) => {
+            return Err(e);
+        }
+    };
 
     match docker_client.get_docker_limits(token) {
-        Ok((limit, remaining)) => println!("Limit: {:?}, Remaining: {:?}", limit, remaining),
-        Err(e) => eprintln!("{}", e),
+        Ok((limit, remaining)) => info!("Limit: {:?}, Remaining: {:?}", limit, remaining),
+        Err(e) => error!("{}", e),
     };
+    Ok(())
 }
 
-#[allow(dead_code)]
 struct DockerHub {
     username: String,
     password: String,
@@ -35,28 +48,24 @@ impl DockerHub {
         DockerHub { username, password }
     }
 
-    fn get_token(&self) -> Token {
+    fn get_token(&self) -> Result<Token> {
         let token_url = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull";
         if self.username != "" && self.password != "" {
-            println!("Taking Authenticated Token");
+            info!("Using Authenticated Token");
             let t_r: Token = reqwest::blocking::Client::new()
                 .get(token_url)
                 .basic_auth(&self.username, Some(&self.password))
-                .send()
-                .unwrap()
-                .json()
-                .unwrap();
-            t_r
+                .send()?
+                .json()?;
+            Ok(t_r)
         } else {
-            println!("Taking Anonymous Token");
-            let token_response: Token = reqwest::blocking::get(token_url).unwrap().json().unwrap();
-            token_response
+            info!("Using Anonymous Token");
+            let token_response: Token = reqwest::blocking::get(token_url)?.json()?;
+            Ok(token_response)
         }
     }
 
     fn get_docker_limits(&self, token: Token) -> Result<(String, String), anyhow::Error> {
-        // let token_url = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull";
-        // let token_response: Token = reqwest::blocking::get(token_url).unwrap().json().unwrap();
         let response = reqwest::blocking::Client::new()
             .head("https://registry-1.docker.io/v2/ratelimitpreview/test/manifests/latest")
             .bearer_auth(token.token)
@@ -78,18 +87,6 @@ impl DockerHub {
 
         Ok((lm, rm))
 
-        // match response_code {
-        //     StatusCode::OK => {
-        //         let limit = resp.headers().get("ratelimit-limit").ok_or_else(|| "");
-        //         let remaining =  resp.headers().get("ratelimit-remaining").ok_or_else(|| "");
-
-        //         return Ok(limit,remaining)
-        //         // if let Some(rate_limit_limit) = resp.headers().get("ratelimit-limit") {
-        //         //     let limit: Vec<&str> = rate_limit_limit.to_str().unwrap().split(";").collect();
-        //         //    limit[0]
-        //         // }
-        //     }
-        //    s => resp.error_for_status_ref()
-        // }
+        //  let limit: Vec<&str> = rate_limit_limit.to_str().unwrap().split(";").collect();
     }
 }
