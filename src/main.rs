@@ -9,7 +9,9 @@ fn main() {
 
     let docker_client = DockerHub::new(username, password);
 
-    match docker_client.get_docker_limits() {
+    let token = docker_client.get_token();
+
+    match docker_client.get_docker_limits(token) {
         Ok((limit, remaining)) => println!("Limit: {:?}, Remaining: {:?}", limit, remaining),
         Err(e) => eprintln!("{}", e),
     };
@@ -33,12 +35,31 @@ impl DockerHub {
         DockerHub { username, password }
     }
 
-    fn get_docker_limits(&self) -> Result<(String, String), anyhow::Error> {
+    fn get_token(&self) -> Token {
         let token_url = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull";
-        let token_response: Token = reqwest::blocking::get(token_url).unwrap().json().unwrap();
+        if self.username != "" && self.password != "" {
+            println!("Taking Authenticated Token");
+            let t_r: Token = reqwest::blocking::Client::new()
+                .get(token_url)
+                .basic_auth(&self.username, Some(&self.password))
+                .send()
+                .unwrap()
+                .json()
+                .unwrap();
+            t_r
+        } else {
+            println!("Taking Anonymous Token");
+            let token_response: Token = reqwest::blocking::get(token_url).unwrap().json().unwrap();
+            token_response
+        }
+    }
+
+    fn get_docker_limits(&self, token: Token) -> Result<(String, String), anyhow::Error> {
+        // let token_url = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull";
+        // let token_response: Token = reqwest::blocking::get(token_url).unwrap().json().unwrap();
         let response = reqwest::blocking::Client::new()
             .head("https://registry-1.docker.io/v2/ratelimitpreview/test/manifests/latest")
-            .bearer_auth(token_response.token)
+            .bearer_auth(token.token)
             .send()?;
 
         let lm: String = response
@@ -54,8 +75,6 @@ impl DockerHub {
             .unwrap_or(&HeaderValue::from_static(""))
             .to_str()?
             .into();
-
-        
 
         Ok((lm, rm))
 
