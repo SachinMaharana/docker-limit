@@ -1,3 +1,6 @@
-# docker-limit
+# docker-rate-limit
 
-Check Docker Hub Limit
+This Project checks rate limits and rate remaining for pull requests on Docker Hub.
+
+Both anonymous and autheticated account are supported.
+
