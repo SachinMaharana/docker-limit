@@ -22,7 +22,7 @@ Both anonymous and autheticated account are supported.
     ```
     ./drl            
     INFO  drl > Using Anonymous Token
-    INFO  drl > Limit: "200;w=21600", Remaining: "198;w=21600"
+    INFO  drl > Limit: "100;w=21600", Remaining: "100;w=21600"
     ```
 
 # DockerHub Auth
