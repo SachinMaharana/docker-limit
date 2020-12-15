@@ -16,12 +16,14 @@ use std::env;
 lazy_static! {
     static ref CONFIG: RwLock<Config> = RwLock::new({
         let mut settings = Config::default();
-        settings.merge(File::with_name("Config.toml")).unwrap();
+        settings
+            .merge(File::with_name("Config.toml"))
+            .expect("Config file missing");
         settings
     });
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     env::set_var("RUST_LOG", "info");
     pretty_env_logger::init();
 
@@ -32,14 +34,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let token = match docker_client.get_token() {
         Ok(t) => t,
-        Err(e) => return Err(e),
+        Err(e) => {
+            if let Some(err) = e.downcast_ref::<reqwest::Error>() {
+                error!("Request Error: {}", err);
+            }
+            if let Some(err) = e.downcast_ref::<config::ConfigError>() {
+                error!("Config Error: {}", err);
+            }
+            std::process::exit(1);
+        }
     };
 
     match docker_client.get_docker_limits(token) {
         Ok((limit, remaining)) => info!("Limit: {:?}, Remaining: {:?}", limit, remaining),
-        Err(e) => error!("{}", e),
+        Err(e) => {
+            if let Some(err) = e.downcast_ref::<reqwest::Error>() {
+                error!("Request Error: {}", err);
+            }
+            if let Some(err) = e.downcast_ref::<config::ConfigError>() {
+                error!("Config Error: {}", err);
+            }
+            std::process::exit(1);
+        }
     };
-    Ok(())
 }
 
 struct DockerHub {
@@ -103,7 +120,5 @@ impl DockerHub {
             .into();
 
         Ok((lm, rm))
-
-        //  let limit: Vec<&str> = rate_limit_limit.to_str().unwrap().split(";").collect();
     }
 }
