@@ -1,14 +1,27 @@
 extern crate pretty_env_logger;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
+extern crate config;
+#[macro_use]
+extern crate lazy_static;
+use std::sync::RwLock;
 
 use anyhow::Result;
+use config::*;
 // use log::{error, info};
 use reqwest::header::HeaderValue;
 use serde::Deserialize;
 use std::env;
 
+lazy_static! {
+    static ref CONFIG: RwLock<Config> = RwLock::new({
+        let mut settings = Config::default();
+        settings.merge(File::with_name("Config.toml")).unwrap();
+        settings
+    });
+}
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     env::set_var("RUST_LOG", "info");
     pretty_env_logger::init();
 
@@ -19,9 +32,7 @@ fn main() -> Result<()> {
 
     let token = match docker_client.get_token() {
         Ok(t) => t,
-        Err(e) => {
-            return Err(e);
-        }
+        Err(e) => return Err(e),
     };
 
     match docker_client.get_docker_limits(token) {
@@ -48,26 +59,32 @@ impl DockerHub {
         DockerHub { username, password }
     }
 
-    fn get_token(&self) -> Result<Token> {
-        let token_url = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull";
+    fn get_token(&self) -> Result<Token, Box<dyn std::error::Error>> {
+        let token_url = CONFIG.read()?.get::<String>("token_url")?.clone();
+
         if self.username != "" && self.password != "" {
             info!("Using Authenticated Token");
             let t_r: Token = reqwest::blocking::Client::new()
-                .get(token_url)
+                .get(&token_url)
                 .basic_auth(&self.username, Some(&self.password))
                 .send()?
                 .json()?;
-            Ok(t_r)
-        } else {
-            info!("Using Anonymous Token");
-            let token_response: Token = reqwest::blocking::get(token_url)?.json()?;
-            Ok(token_response)
+            return Ok(t_r);
         }
+
+        info!("Using Anonymous Token");
+        let token_response: Token = reqwest::blocking::get(&token_url)?.json()?;
+        Ok(token_response)
     }
 
-    fn get_docker_limits(&self, token: Token) -> Result<(String, String), anyhow::Error> {
+    fn get_docker_limits(
+        &self,
+        token: Token,
+    ) -> Result<(String, String), Box<dyn std::error::Error>> {
+        let registry_url = CONFIG.read()?.get::<String>("registry_url")?.clone();
+
         let response = reqwest::blocking::Client::new()
-            .head("https://registry-1.docker.io/v2/ratelimitpreview/test/manifests/latest")
+            .head(&registry_url)
             .bearer_auth(token.token)
             .send()?;
 

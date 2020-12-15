@@ -1,0 +1,2 @@
+token_url = "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ratelimitpreview/test:pull"
+registry_url = "https://registry-1.docker.io/v2/ratelimitpreview/test/manifests/latest"
